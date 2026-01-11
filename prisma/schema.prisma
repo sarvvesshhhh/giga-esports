@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// THE IDENTITY SYSTEM
+model User {
+  id            String    @id @default(cuid())
+  clerkId       String    @unique
+  username      String    @unique
+  email         String    @unique
+  
+  // The Stats
+  gigaScore     Float     @default(1000.0)
+  archetype     String    @default("SILENT_GRINDER")
+  biasRating    Float     @default(0.0)
+  
+  // Relations
+  predictions   Prediction[]
+  receipts      Receipt[]
+  
+  createdAt     DateTime  @default(now())
+}
+
+model Prediction {
+  id            String    @id @default(cuid())
+  userId        String
+  matchId       String
+  stakeAmount   Int
+  isCorrect     Boolean?
+  
+  user          User      @relation(fields: [userId], references: [id])
+}
+
+model Receipt {
+  id            String    @id @default(cuid())
+  userId        String
+  content       String    // "The AI's cheeky comment"
+  
+  user          User      @relation(fields: [userId], references: [id])
+
+}
+
+model LiveScenario {
+  id        String   @id @default(uuid())
+  title     String
+  optionA   String
+  optionB   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
