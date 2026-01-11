@@ -94,3 +94,40 @@ export async function judgeFlashAction(username: string, scenario: string, choic
   revalidatePath("/");
   return { success: true, iq: score, points: pointChange, verdict: text };
 }
+
+// ... keep existing imports ...
+
+export async function predictMatchAction(matchData: any) {
+  const teamA = matchData.opponents[0]?.opponent?.name || "Team A";
+  const teamB = matchData.opponents[1]?.opponent?.name || "Team B";
+  const game = matchData.videogame.name;
+  const league = matchData.league.name;
+
+  const prompt = `
+    Match: ${teamA} vs ${teamB}
+    Game: ${game}
+    League: ${league}
+    
+    Task: Predict the winner.
+    Analyze the teams based on your esports knowledge.
+    Be decisive. Pick one winner and explain why in 2 sentences.
+    Then, give a confidence percentage.
+    
+    FORMAT: WINNER | CONFIDENCE | EXPLANATION
+    Example: SENTINELS | 85% | TenZ is mechanically superior...
+  `;
+
+  // Reuse our judgePrediction helper (it parses the text roughly)
+  // or just use judgeArchetype for cleaner split if you prefer.
+  // Let's stick to judgeArchetype logic since we want structured data.
+  
+  const { text } = await judgePrediction(prompt);
+  // Expected: "SENTINELS | 85% | Reason..."
+  
+  const parts = text.split("|");
+  return {
+    winner: parts[0]?.trim() || "UNKNOWN",
+    confidence: parts[1]?.trim() || "50%",
+    reason: parts[2]?.trim() || text
+  };
+}
