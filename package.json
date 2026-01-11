@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint"
+    
   },
   "dependencies": {
     "@clerk/nextjs": "^6.36.7",

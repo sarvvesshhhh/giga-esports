@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   // SERVER ACTION: Create a Scenario
   async function createScenario(formData: FormData) {
