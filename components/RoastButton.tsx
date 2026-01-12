@@ -1,31 +1,25 @@
 "use client";
-
 import { useState } from "react";
 import { roastUserAction } from "@/app/actions";
 
-export default function RoastButton({ username }: { username: string }) {
+export default function RoastButton() {
   const [loading, setLoading] = useState(false);
 
-  const handleClick = async () => {
+  const handleRoast = async () => {
     setLoading(true);
-    // Call the server action we just made
-    await roastUserAction(username);
+    // REMOVED username: The action finds the user via session
+    const verdict = await roastUserAction(); 
+    alert(verdict);
     setLoading(false);
   };
 
   return (
-    <button
-      onClick={handleClick}
+    <button 
+      onClick={handleRoast}
       disabled={loading}
-      className="mt-8 px-8 py-3 bg-red-900/20 border border-red-900 text-red-500 font-mono text-xs uppercase tracking-[0.2em] hover:bg-red-900 hover:text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed group"
+      className="text-[10px] text-gray-600 hover:text-red-500 transition-colors uppercase font-mono mt-4"
     >
-      {loading ? (
-        <span className="animate-pulse">Analyzing Fails...</span>
-      ) : (
-        <span className="group-hover:tracking-[0.4em] transition-all">
-          Request Judgment (-50 Pts)
-        </span>
-      )}
+      [ REQUEST_ROAST ]
     </button>
   );
 }

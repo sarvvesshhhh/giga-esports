@@ -8,20 +8,7 @@ export default async function AdminPage() {
   // SERVER ACTION: Create a Scenario
   async function createScenario(formData: FormData) {
     "use server";
-    
-    // 1. Deactivate old scenarios so users only see the new one
-    await prisma.liveScenario.updateMany({
-      data: { isActive: false }
-    });
 
-    // 2. Create the new live scenario
-    await prisma.liveScenario.create({
-      data: {
-        title: formData.get("title") as string,
-        optionA: formData.get("optionA") as string,
-        optionB: formData.get("optionB") as string,
-      }
-    });
 
     revalidatePath("/"); // Update the homepage for everyone instantly
     redirect("/admin?success=true");

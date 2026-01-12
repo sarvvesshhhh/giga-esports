@@ -1,55 +1,44 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "postgresql" // <--- CHANGED TO POSTGRESQL (NEON)
   url      = env("DATABASE_URL")
 }
 
-// THE IDENTITY SYSTEM
 model User {
-  id            String    @id @default(cuid())
-  clerkId       String    @unique
-  username      String    @unique
-  email         String    @unique
+  id             String   @id @default(cuid()) // Uses CUID strings instead of Mongo ObjectIds
+  clerkId        String   @unique
+  username       String?
   
-  // The Stats
-  gigaScore     Float     @default(1000.0)
-  archetype     String    @default("SILENT_GRINDER")
-  biasRating    Float     @default(0.0)
+  // GIGA STATS
+  gigaScore      Int      @default(1000)
+  archetype      String   @default("INITIATE")
+  bias           Float    @default(0.0)
   
-  // Relations
-  predictions   Prediction[]
-  receipts      Receipt[]
+  // RELATIONS
+  predictions    Prediction[]
   
-  createdAt     DateTime  @default(now())
+  lastActive     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Prediction {
-  id            String    @id @default(cuid())
-  userId        String
-  matchId       String
-  stakeAmount   Int
-  isCorrect     Boolean?
+  id          String   @id @default(cuid())
   
-  user          User      @relation(fields: [userId], references: [id])
-}
-
-model Receipt {
-  id            String    @id @default(cuid())
-  userId        String
-  content       String    // "The AI's cheeky comment"
+  // RELATION TO USER
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
   
-  user          User      @relation(fields: [userId], references: [id])
-
-}
-
-model LiveScenario {
-  id        String   @id @default(uuid())
-  title     String
-  optionA   String
-  optionB   String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  // MATCH DATA
+  matchId     String
+  teamPick    String
+  confidence  String   // HIGH, MID, LOW
+  status      String   @default("PENDING") // PENDING, WON, LOST
+  
+  createdAt   DateTime @default(now())
 }

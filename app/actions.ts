@@ -1,93 +1,93 @@
 "use server";
 
-import { prisma } from "@/lib/db";
-import { getVerdict, judgePrediction, judgeArchetype } from "@/lib/judge"; // Import all tools
+import { prisma } from "@/lib/user"; // Ensure this matches your singleton path
+import { getVerdict, judgePrediction, judgeArchetype } from "@/lib/judge"; 
 import { revalidatePath } from "next/cache";
+import { auth } from "@clerk/nextjs/server";
+
+// Helper to get current Giga User safely
+async function getAuthenticatedUser() {
+  const { userId } = await auth();
+  if (!userId) throw new Error("UNAUTHORIZED_ACCESS");
+  
+  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  if (!user) throw new Error("USER_NOT_FOUND_IN_PROTOCOL");
+  return user;
+}
 
 // --- ACTION 1: MANUAL ROAST BUTTON ---
-export async function roastUserAction(username: string) {
-  const user = await prisma.user.findUnique({ where: { username } });
-  if (!user) return "User not found.";
+export async function roastUserAction() {
+  const user = await getAuthenticatedUser();
 
-  await prisma.user.update({
-    where: { username },
+  // Update using unique clerkId
+  const updatedUser = await prisma.user.update({
+    where: { clerkId: user.clerkId },
     data: { gigaScore: { decrement: 50 } },
   });
 
   const verdict = await getVerdict(
-    user.username,
-    `The user just asked for another roast. Their score dropped to ${user.gigaScore - 50}. Mock them.`
+    updatedUser.username ?? "Agent",
+    `The user just asked for another roast. Their score dropped to ${updatedUser.gigaScore}. Mock them.`
   );
 
   revalidatePath("/");
   return verdict;
 }
 
-// --- ACTION 2: BETTING TERMINAL (Legacy) ---
-export async function placeBetAction(username: string, team: string, amount: number) {
-  const user = await prisma.user.findUnique({ where: { username } });
-  if (!user) return { success: false, message: "User not found." };
+// --- ACTION 2: BETTING TERMINAL ---
+export async function placeBetAction(team: string, amount: number) {
+  const user = await getAuthenticatedUser();
 
   if (user.gigaScore < amount) {
     return { success: false, message: "INSUFFICIENT FUNDS. You are broke." };
   }
 
   const isWin = Math.random() > 0.6; 
-  let newScore = user.gigaScore;
-  let verdictContext = "";
-
-  if (isWin) {
-    newScore += amount; 
-    verdictContext = `User bet ${amount} on ${team} and WON. They got lucky.`;
-  } else {
-    newScore -= amount;
-    verdictContext = `User bet ${amount} on ${team} and LOST. They were crushed.`;
-  }
-
-  await prisma.user.update({
-    where: { username },
-    data: { gigaScore: newScore },
+  let pointChange = isWin ? amount : -amount;
+  
+  const updatedUser = await prisma.user.update({
+    where: { clerkId: user.clerkId },
+    data: { gigaScore: { increment: pointChange } },
   });
 
-  const verdict = await getVerdict(username, verdictContext);
+  const verdictContext = isWin 
+    ? `User bet ${amount} on ${team} and WON. Lucky fool.` 
+    : `User bet ${amount} on ${team} and LOST. Crushed.`;
+
+  const verdict = await getVerdict(updatedUser.username ?? "Agent", verdictContext);
   revalidatePath("/");
   return { success: true, message: verdict, isWin };
 }
 
 // --- ACTION 3: TEXT PREDICTION ENGINE ---
-export async function submitPredictionAction(username: string, predictionText: string) {
-  const user = await prisma.user.findUnique({ where: { username } });
-  if (!user) return { success: false, message: "User not found." };
+export async function submitPredictionAction(predictionText: string) {
+  const user = await getAuthenticatedUser();
 
   const { score, text } = await judgePrediction(predictionText);
   const pointChange = (score - 50) * 2;
 
   await prisma.user.update({
-    where: { username },
-    data: { gigaScore: user.gigaScore + pointChange },
+    where: { clerkId: user.clerkId },
+    data: { gigaScore: { increment: pointChange } },
   });
 
   revalidatePath("/");
   return { success: true, iq: score, points: pointChange, verdict: text };
 }
 
-// --- ACTION 4: FLASH DECISIONS (The one that crashed) ---
-export async function judgeFlashAction(username: string, scenario: string, choice: string) {
-  const user = await prisma.user.findUnique({ where: { username } });
-  if (!user) return { success: false, message: "User not found." };
+// --- ACTION 4: FLASH DECISIONS ---
+export async function judgeFlashAction(scenario: string, choice: string) {
+  const user = await getAuthenticatedUser();
 
-  // 1. CALL THE NEW AI FUNCTION (Calculates Score + Archetype)
+  // AI calculates Score + Archetype
   const { score, archetype, text } = await judgeArchetype(scenario, choice);
-
-  // 2. CALCULATE POINTS
   const pointChange = (score - 50) * 3;
 
-  // 3. UPDATE DB (With new Archetype!)
   await prisma.user.update({
-    where: { username },
+    where: { clerkId: user.clerkId },
     data: { 
-      gigaScore: user.gigaScore + pointChange,
-      archetype: archetype // <--- UPDATES YOUR TITLE
+      gigaScore: { increment: pointChange },
+      archetype: archetype // Updates their Title
     },
   });
 
@@ -95,38 +95,25 @@ export async function judgeFlashAction(username: string, scenario: string, choic
   return { success: true, iq: score, points: pointChange, verdict: text };
 }
 
-// ... keep existing imports ...
-
+// --- ACTION 5: ESPORTS ANALYST AI ---
 export async function predictMatchAction(matchData: any) {
-  const teamA = matchData.opponents[0]?.opponent?.name || "Team A";
-  const teamB = matchData.opponents[1]?.opponent?.name || "Team B";
-  const game = matchData.videogame.name;
-  const league = matchData.league.name;
+  const teamA = matchData.team1?.name || "Team A";
+  const teamB = matchData.team2?.name || "Team B";
+  const tournament = matchData.tournament || "Valorant Protocol";
 
   const prompt = `
     Match: ${teamA} vs ${teamB}
-    Game: ${game}
-    League: ${league}
+    Tournament: ${tournament}
     
-    Task: Predict the winner.
-    Analyze the teams based on your esports knowledge.
-    Be decisive. Pick one winner and explain why in 2 sentences.
-    Then, give a confidence percentage.
-    
+    Task: Predict the winner as a GigaEsports Analyst.
     FORMAT: WINNER | CONFIDENCE | EXPLANATION
-    Example: SENTINELS | 85% | TenZ is mechanically superior...
   `;
-
-  // Reuse our judgePrediction helper (it parses the text roughly)
-  // or just use judgeArchetype for cleaner split if you prefer.
-  // Let's stick to judgeArchetype logic since we want structured data.
   
   const { text } = await judgePrediction(prompt);
-  // Expected: "SENTINELS | 85% | Reason..."
-  
   const parts = text.split("|");
+
   return {
-    winner: parts[0]?.trim() || "UNKNOWN",
+    winner: parts[0]?.trim() || "TBD",
     confidence: parts[1]?.trim() || "50%",
     reason: parts[2]?.trim() || text
   };

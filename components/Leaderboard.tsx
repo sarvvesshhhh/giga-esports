@@ -1,60 +1,40 @@
-export default function Leaderboard({ 
-  users, 
-  currentUser 
-}: { 
-  users: any[], 
-  currentUser: string 
-}) {
+// components/Leaderboard.tsx
+interface LeaderboardProps {
+  users: {
+    id: string;
+    username: string | null; // Matches Prisma's optional String?
+    gigaScore: number;
+    archetype: string;
+  }[];
+  currentUser: string;
+}
+
+export default function Leaderboard({ users, currentUser }: LeaderboardProps) {
   return (
-    <div className="w-full max-w-md mt-12 mb-12">
-      <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-4 text-center">
-        Global Intelligence Ranking
-      </h3>
-
-      <div className="bg-[#0a0a0a] border border-[#1f1f1f] rounded-lg overflow-hidden">
-        {/* TABLE HEADER */}
-        <div className="grid grid-cols-4 p-3 bg-[#111] text-[10px] text-gray-500 uppercase font-bold border-b border-[#222]">
-          <div className="text-center">Rank</div>
-          <div className="col-span-2">Agent</div>
-          <div className="text-right">Score</div>
-        </div>
-
-        {/* LIST OF PLAYERS */}
-        {users.map((user, index) => {
-          const isMe = user.username === currentUser;
-          const rank = index + 1;
-          
-          let rankColor = "text-gray-500";
-          if (rank === 1) rankColor = "text-yellow-500"; // Gold
-          if (rank === 2) rankColor = "text-gray-300";   // Silver
-          if (rank === 3) rankColor = "text-orange-600"; // Bronze
-
-          return (
-            <div 
+    <div className="w-full bg-[#1f2b36] border border-white/10 rounded-sm overflow-hidden">
+      <table className="w-full text-left">
+        <thead className="bg-black/40 text-[10px] uppercase tracking-widest text-gray-500 border-b border-white/5">
+          <tr>
+            <th className="px-6 py-4">Rank</th>
+            <th className="px-6 py-4">Subject</th>
+            <th className="px-6 py-4">Archetype</th>
+            <th className="px-6 py-4 text-right">GigaScore</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/5">
+          {users.map((user, index) => (
+            <tr 
               key={user.id} 
-              className={`grid grid-cols-4 p-3 border-b border-[#1a1a1a] items-center text-sm ${isMe ? 'bg-red-900/10 border-l-2 border-l-red-600' : ''}`}
+              className={`hover:bg-white/5 transition ${user.username === currentUser ? 'bg-[#ff4655]/10' : ''}`}
             >
-              <div className={`text-center font-mono font-bold ${rankColor}`}>#{rank}</div>
-              
-              <div className="col-span-2 flex flex-col">
-                <span className={`font-bold ${isMe ? 'text-white' : 'text-gray-400'}`}>
-                  {user.username} {isMe && "(YOU)"}
-                </span>
-                <span className="text-[9px] text-gray-600 uppercase">{user.archetype}</span>
-              </div>
-              
-              <div className="text-right font-mono text-gray-300">
-                {user.gigaScore}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      
-      {/* FOOTER */}
-      <div className="text-[9px] text-center text-gray-700 mt-2 font-mono">
-        UPDATES LIVE // COMPETITION IS ABSOLUTE
-      </div>
+              <td className="px-6 py-4 font-black italic text-[#ff4655]">#{index + 1}</td>
+              <td className="px-6 py-4 font-bold uppercase">{user.username ?? "Anonymous"}</td>
+              <td className="px-6 py-4 text-[10px] font-mono text-gray-400">{user.archetype}</td>
+              <td className="px-6 py-4 text-right font-black text-xl">{user.gigaScore}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

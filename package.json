@@ -14,12 +14,11 @@
     "@clerk/themes": "^2.4.47",
     "@google/generative-ai": "^0.24.1",
     "@neondatabase/serverless": "^1.0.2",
-    "@prisma/client": "^5.19.1",
+    "@prisma/client": "^5.22.0",
     "cheerio": "^1.1.2",
     "dotenv": "^17.2.3",
     "groq-sdk": "^0.37.0",
     "next": "16.1.1",
-    "prisma": "^5.19.1",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
@@ -30,6 +29,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
+    "prisma": "^5.22.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
