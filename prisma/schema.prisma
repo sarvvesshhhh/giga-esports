@@ -5,40 +5,57 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // <--- CHANGED TO POSTGRESQL (NEON)
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id             String   @id @default(cuid()) // Uses CUID strings instead of Mongo ObjectIds
+  id             String   @id @default(cuid())
   clerkId        String   @unique
   username       String?
   
-  // GIGA STATS
+  // THE IDENTITY CORE
   gigaScore      Int      @default(1000)
   archetype      String   @default("INITIATE")
-  bias           Float    @default(0.0)
+  bias           Float    @default(0.0) // -1.0 (Hater) to +1.0 (Fanboy)
   
-  // RELATIONS
+  // THE DATA TRAIL
   predictions    Prediction[]
+  history        MatchHistory[]
   
   lastActive     DateTime @default(now())
   createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 }
 
 model Prediction {
   id          String   @id @default(cuid())
-  
-  // RELATION TO USER
   userId      String
   user        User     @relation(fields: [userId], references: [id])
   
-  // MATCH DATA
-  matchId     String
+  matchId     String   // ID from your API (VLR/Panda)
   teamPick    String
   confidence  String   // HIGH, MID, LOW
   status      String   @default("PENDING") // PENDING, WON, LOST
   
   createdAt   DateTime @default(now())
+}
+
+model MatchHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  content   String   // The AI's past roasts or verdicts on this user
+  createdAt DateTime @default(now())
+}
+
+model Match {
+  id          String   @id @default(cuid())
+  externalId  String   @unique // The VLR or PandaScore ID
+  team1       String
+  team2       String
+  score1      Int?     @default(0)
+  score2      Int?     @default(0)
+  tournament  String?
+  status      String   // UPCOMING, LIVE, COMPLETED
+  updatedAt   DateTime @updatedAt
 }
