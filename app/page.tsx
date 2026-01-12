@@ -85,8 +85,9 @@ export default async function Home() {
         <p className="text-xl font-light italic text-gray-400 animate-in fade-in duration-1000">
           "{verdict}"
         </p>
-      </div>
+      </div> 
 
+      
       {/* ACCOUNTABILITY FEED: Live record of protocol judgments */}
       <div className="w-full max-w-md">
         <GigaFeed activities={activities} />
