@@ -1,0 +1,111 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. USER IDENTITY (The "Memory" Core)
+model User {
+  id             String   @id @default(uuid())
+  clerkId        String   @unique // Links to Clerk Auth
+  email          String   @unique
+  username       String?  @default("Rookie")
+  
+  // -- The GigaScore Metrics --
+  gigaScore      Float    @default(500.0) // Start at neutral baseline
+  reputationTier String   @default("ROOKIE") // e.g., Rookie, Analyst, Oracle
+  
+  // -- Consistency & Discipline Tracking --
+  currentStreak  Int      @default(0) // Tracks daily participation
+  bestStreak     Int      @default(0)
+  accuracyRate   Float    @default(0.0) 
+  lastActiveDate DateTime @default(now()) // Used for "Time Decay"
+
+  // -- Relations --
+  predictions    Prediction[]
+  scoreHistory   GigaScoreLog[]
+  dailyVerdicts  DailyVerdict[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// 2. MATCH DATA (Reference System)
+model Match {
+  id           String      @id @default(uuid())
+  externalId   String      @unique // Source ID [cite: 142]
+  game         String      @default("unknown") // For multi-esport support 
+  tournName    String
+  teamA        String
+  teamB        String
+  startTime    DateTime
+  status       MatchStatus @default(SCHEDULED)
+  winner       String?     
+  
+  // Logic Control
+  processedForScore Boolean @default(false) // Ensures score is calculated once [cite: 190]
+
+  predictions  Prediction[]
+}
+
+// 3. USER ACTIONS (Accountability)
+model Prediction {
+  id            String   @id @default(uuid())
+  userId        String
+  matchId       String
+  
+  pick          String   // The team the user predicted
+  isLocked      Boolean  @default(false) // Prevents changing pick after match start
+  outcome       Outcome? // PENDING, CORRECT, INCORRECT
+  
+  createdAt     DateTime @default(now()) 
+
+  user          User     @relation(fields: [userId], references: [id])
+  match         Match    @relation(fields: [matchId], references: [id])
+}
+
+// 4. BEHAVIORAL HISTORY (Long-term Vision)
+model GigaScoreLog {
+  id            String   @id @default(uuid())
+  userId        String
+  
+  changeAmount  Float    // e.g., +15.5 or -5.2
+  newScore      Float    // Snapshot of score after change
+  reason        String   // e.g., "Prediction Correct", "Inactivity Decay"
+  
+  timestamp     DateTime @default(now())
+  
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+// 5. AI JUDGMENT (The "Judge")
+model DailyVerdict {
+  id            String   @id @default(uuid())
+  userId        String
+  date          DateTime @default(now()) 
+  
+  narrative     String   // The AI's personality-driven critique
+  mood          String   // e.g., "Impressed", "Disappointed"
+  
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+// -- Enums --
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+  CANCELED
+}
+
+enum Outcome {
+  PENDING
+  CORRECT
+  INCORRECT
+  VOID
+}
