@@ -1,27 +1,68 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { Trophy, Zap, TrendingUp, Activity } from "lucide-react";
 import { getDashboardData } from "@/actions/get-dashboard-data";
 import { cn } from "@/lib/utils";
 import { GigaCard } from "@/components/ui/giga-card";
 
-export function ScoreCard() {
-  const [data, setData] = useState({ score: 0, streak: 0, rank: "LOADING..." });
-  const [loading, setLoading] = useState(true);
+// 1. We keep the TypeScript interface so Vercel doesn't crash during build
+interface ScoreCardProps {
+  score?: number;
+  streak?: number;
+  bestStreak?: number;
+  accuracy?: number;
+  rank?: string;
+}
+
+export function ScoreCard({ 
+  score: propScore, 
+  streak: propStreak, 
+  bestStreak: propBestStreak, 
+  accuracy: propAccuracy,
+  rank: propRank 
+}: ScoreCardProps) {
+  
+  // 2. Check if props were passed (meaning it's on the GigaScore page)
+  const isPropProvided = propScore !== undefined;
+
+  const [data, setData] = useState({ 
+    score: propScore || 0, 
+    streak: propStreak || 0, 
+    bestStreak: propBestStreak || 0,
+    accuracy: propAccuracy || 0,
+    rank: propRank || "LOADING..." 
+  });
+  
+  const [loading, setLoading] = useState(!isPropProvided);
 
   useEffect(() => {
+    // If it received props, just use them and skip fetching
+    if (isPropProvided) {
+      setData({
+        score: propScore || 0,
+        streak: propStreak || 0,
+        bestStreak: propBestStreak || 0,
+        accuracy: propAccuracy || 0,
+        rank: propRank || (propScore >= 500 ? "GIGA" : "OPERATIVE") // Fallback rank based on score
+      });
+      setLoading(false);
+      return;
+    }
+
+    // If no props (Dashboard page), fetch the data internally
     async function load() {
       const res = await getDashboardData();
-      if (res.success && res.data) setData(res.data);
+      if (res.success && res.data) {
+        setData(prev => ({ ...prev, ...res.data }));
+      }
       setLoading(false);
     }
     load();
-  }, []);
+  }, [isPropProvided, propScore, propStreak, propBestStreak, propAccuracy, propRank]);
 
   return (
-    <GigaCard label="// GIGASCORE_IDENTITY" className="h-full min-h-[16rem] group flex flex-col justify-between">
+    <GigaCard label="// GIGASCORE_IDENTITY" className="h-full min-h-[16rem] group flex flex-col justify-between overflow-hidden relative">
       
       {/* Background Decor - Lighter in Light Mode */}
       <div className="absolute -right-12 -top-12 text-zinc-200 dark:text-zinc-800/20 group-hover:text-zinc-300 dark:group-hover:text-zinc-800/30 transition-all duration-500 pointer-events-none">
@@ -57,7 +98,7 @@ export function ScoreCard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-2">
-           {/* Stat 1 */}
+           {/* Stat 1: Streak */}
            <div>
               <div className="flex items-center gap-1 text-zinc-400 mb-1">
                  <Zap className="w-3 h-3" />
@@ -67,23 +108,27 @@ export function ScoreCard() {
                  {data.streak}
               </div>
            </div>
-           {/* Stat 2 */}
+           
+           {/* Stat 2: Best Streak */}
            <div>
               <div className="flex items-center gap-1 text-zinc-400 mb-1">
                  <TrendingUp className="w-3 h-3" />
-                 <span className="text-[9px] font-bold uppercase tracking-widest">Trend</span>
+                 <span className="text-[9px] font-bold uppercase tracking-widest">Best</span>
               </div>
               <div className="text-lg font-black text-emerald-600 dark:text-emerald-500">
-                 +1.2%
+                 {data.bestStreak > 0 ? `+${data.bestStreak}` : data.bestStreak}
               </div>
            </div>
-           {/* Stat 3 */}
+           
+           {/* Stat 3: Accuracy */}
            <div>
               <div className="flex items-center gap-1 text-zinc-400 mb-1">
                  <Activity className="w-3 h-3" />
                  <span className="text-[9px] font-bold uppercase tracking-widest">Acc</span>
               </div>
-              <div className="text-lg font-black text-zinc-400 dark:text-zinc-500">--</div>
+              <div className="text-lg font-black text-zinc-400 dark:text-zinc-500">
+                {data.accuracy > 0 ? `${Math.round(data.accuracy)}%` : '--'}
+              </div>
            </div>
         </div>
       </div>
@@ -91,7 +136,7 @@ export function ScoreCard() {
   );
 }
 
-// ... CountUp helper stays same ...
+// ... CountUp helper stays exactly the same ...
 function CountUp({ to }: { to: number }) {
   const [count, setCount] = useState(0);
   useEffect(() => {
