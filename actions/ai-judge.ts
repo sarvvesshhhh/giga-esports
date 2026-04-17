@@ -16,7 +16,7 @@ export async function generateDailyVerdict() {
     if (!clerkId) return { success: false, error: "Unauthorized" };
 
     // 2. Fetch User Data
-    const user = await db.user.findUnique({
+    let user = await db.user.findUnique({
       where: { clerkId },
       include: {
         scoreHistory: {

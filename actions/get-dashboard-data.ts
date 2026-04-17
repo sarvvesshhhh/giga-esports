@@ -8,7 +8,7 @@ export async function getDashboardData() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return { success: false, error: "Unauthorized" };
 
-  const user = await db.user.findUnique({
+  let user = await db.user.findUnique({
     where: { clerkId },
     select: {
       gigaScore: true,
