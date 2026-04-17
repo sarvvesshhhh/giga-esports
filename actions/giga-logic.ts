@@ -2,13 +2,14 @@
 
 import { db } from "@/lib/db";
 import { differenceInDays } from "date-fns";
+import { syncUser } from "./auth";
 
 /**
  * GigaScore Algorithm: Behavioral Identity Metric
  * Handles: Accuracy, Consistency (Streaks), and Time-Decay
  */
 export async function calculateGigaScore(userId: string, isCorrect?: boolean) {
-  const user = await db.user.findUnique({
+  let user = await db.user.findUnique({
     where: { id: userId },
     select: { 
       id: true, 
@@ -17,6 +18,19 @@ export async function calculateGigaScore(userId: string, isCorrect?: boolean) {
       currentStreak: true 
     }
   });
+
+  if (!user) {
+    await syncUser();
+    user = await db.user.findUnique({
+      where: { id: userId },
+      select: { 
+        id: true, 
+        gigaScore: true, 
+        lastActiveDate: true, 
+        currentStreak: true 
+      }
+    });
+  }
 
   if (!user) throw new Error("User not found");
 

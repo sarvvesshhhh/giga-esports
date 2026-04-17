@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Activity, ShieldAlert, CheckCircle2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { syncUser } from "@/actions/auth";
 
 // Components
 import { Navbar } from "@/components/navbar";
@@ -33,6 +34,12 @@ export default async function GigaScorePage() {
       },
     },
   });
+
+  if (!user) {
+    await syncUser();
+    // Refresh the page or just re-fetch
+    return redirect("/gigascore");
+  }
 
   if (!user) {
     return (
