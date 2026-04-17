@@ -3,6 +3,7 @@
 import { Groq } from "groq-sdk";
 import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
+import { syncUser } from "./auth";
 
 // 1. Robust Initialization
 const groq = new Groq({
@@ -28,6 +29,17 @@ export async function generateDailyVerdict() {
         },
       },
     });
+
+    if (!user) {
+      await syncUser();
+      user = await db.user.findUnique({
+        where: { clerkId },
+        include: {
+          scoreHistory: { orderBy: { timestamp: "desc" }, take: 2 },
+          predictions: { orderBy: { createdAt: "desc" }, take: 5 },
+        },
+      });
+    }
 
     if (!user) return { success: false, error: "User profile not found" };
 

@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { syncUser } from "./auth";
 
 // Updated to accept the new Tactical fields
 export async function submitPrediction(
@@ -21,9 +22,17 @@ export async function submitPrediction(
     }
 
     // 2. Find the internal Database User
-    const user = await db.user.findUnique({
+    let user = await db.user.findUnique({
       where: { clerkId },
     });
+    
+    if (!user) {
+      await syncUser();
+      user = await db.user.findUnique({
+        where: { clerkId },
+      });
+    }
+
     if (!user) {
       return { success: false, error: "User profile not synced." };
     }

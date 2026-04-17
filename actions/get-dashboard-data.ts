@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
+import { syncUser } from "./auth";
 
 export async function getDashboardData() {
   const { userId: clerkId } = await auth();
@@ -31,6 +32,19 @@ export async function getDashboardData() {
       }
     },
   });
+
+  if (!user) {
+    await syncUser();
+    user = await db.user.findUnique({
+      where: { clerkId },
+      select: {
+        gigaScore: true,
+        currentStreak: true,
+        dailyVerdicts: { take: 5, orderBy: { date: "desc" }, select: { id: true, narrative: true, mood: true, date: true } },
+        scoreHistory: { take: 5, orderBy: { timestamp: "desc" }, select: { id: true, reason: true, changeAmount: true, timestamp: true } }
+      },
+    });
+  }
 
   if (!user) return { success: false, error: "User not found" };
 
