@@ -35,38 +35,42 @@ model User {
   updatedAt      DateTime @updatedAt
 }
 
-// 2. MATCH DATA (Reference System)
+// 2. MATCH DATA (Reference System - Now decoupled from Predictions)
 model Match {
-  id           String      @id @default(uuid())
-  externalId   String      @unique // Source ID [cite: 142]
-  game         String      @default("unknown") // For multi-esport support 
-  tournName    String
-  teamA        String
-  teamB        String
-  startTime    DateTime
-  status       MatchStatus @default(SCHEDULED)
-  winner       String?     
+  id                String      @id @default(uuid())
+  externalId        String      @unique // Source ID
+  game              String      @default("unknown") // For multi-esport support 
+  tournName         String
+  teamA             String
+  teamB             String
+  startTime         DateTime
+  status            MatchStatus @default(SCHEDULED)
+  winner            String?     
   
   // Logic Control
-  processedForScore Boolean @default(false) // Ensures score is calculated once [cite: 190]
-
-  predictions  Prediction[]
+  processedForScore Boolean     @default(false) // Ensures score is calculated once
 }
 
 // 3. USER ACTIONS (Accountability)
 model Prediction {
   id            String   @id @default(uuid())
   userId        String
-  matchId       String
+  matchId       String   // Now a free string to accept external PandaScore IDs!
+  game          String?  // Added so your UI can display the game name
+  
+  // --- THE NEW TACTICAL FIELDS ---
+  teamA         String?  // Memorizes Team A
+  teamB         String?  // Memorizes Team B
+  tournName     String?  // Memorizes the Tournament Name
+  // -------------------------------
   
   pick          String   // The team the user predicted
   isLocked      Boolean  @default(false) // Prevents changing pick after match start
-  outcome       Outcome? // PENDING, CORRECT, INCORRECT
+  outcome       Outcome? @default(PENDING) // PENDING, CORRECT, INCORRECT
   
   createdAt     DateTime @default(now()) 
 
   user          User     @relation(fields: [userId], references: [id])
-  match         Match    @relation(fields: [matchId], references: [id])
 }
 
 // 4. BEHAVIORAL HISTORY (Long-term Vision)

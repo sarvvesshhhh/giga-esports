@@ -1,11 +1,18 @@
-// actions/submit-prediction.ts
 "use server";
 
 import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 
-export async function submitPrediction(matchId: string, pick: string) {
+// Updated to accept the new Tactical fields
+export async function submitPrediction(
+  matchId: string, 
+  pick: string, 
+  gameName: string, 
+  teamA: string, 
+  teamB: string, 
+  tournName: string
+) {
   try {
     // 1. Authenticate the user via Clerk
     const { userId: clerkId } = await auth();
@@ -21,47 +28,40 @@ export async function submitPrediction(matchId: string, pick: string) {
       return { success: false, error: "User profile not synced." };
     }
 
-    // 3. Validate the Match
-    const match = await db.match.findUnique({
-      where: { id: matchId },
-    });
-    if (!match) {
-      return { success: false, error: "Match protocol not found." };
-    }
-
-    // Prevent predicting if the match has already started (Discipline metric!)
-    if (new Date() >= match.startTime || match.status !== "SCHEDULED") {
-      return { success: false, error: "Match has already begun. Lock-in failed." };
-    }
-
-    // 4. Check if they already predicted this match
+    // 3. Check if they already predicted this match
     const existingPrediction = await db.prediction.findFirst({
       where: {
         userId: user.id,
-        matchId: matchId,
+        matchId: matchId, // This is now the PandaScore ID
       },
     });
 
     if (existingPrediction) {
-      // If it exists, they are just changing their mind before it starts
+      // If it exists, update it (assuming the match hasn't started yet)
       await db.prediction.update({
         where: { id: existingPrediction.id },
         data: { pick },
       });
     } else {
-      // 5. Create the new prediction memory
+      // 4. Create the new prediction memory with the tactical data
       await db.prediction.create({
         data: {
           userId: user.id,
-          matchId: matchId,
+          matchId: matchId, 
+          game: gameName,   
+          teamA: teamA,         // <--- SAVING TEAM A
+          teamB: teamB,         // <--- SAVING TEAM B
+          tournName: tournName, // <--- SAVING TOURNAMENT NAME
           pick: pick,
           outcome: "PENDING",
         },
       });
     }
 
-    // 6. Tell Next.js to refresh the dashboard so the UI updates instantly
+    // 5. Refresh the UI across all relevant pages
+    revalidatePath("/schedule");
     revalidatePath("/dashboard");
+    revalidatePath("/gigascore"); 
     
     return { success: true };
   } catch (error) {

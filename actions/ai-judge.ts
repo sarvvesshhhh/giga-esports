@@ -31,7 +31,7 @@ export async function generateDailyVerdict() {
 
     if (!user) return { success: false, error: "User profile not found" };
 
-    // 3. Check if we already have a verdict for today
+    // 3. Find if we already have a verdict for today (to prevent DB bloat)
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
@@ -42,9 +42,7 @@ export async function generateDailyVerdict() {
       },
     });
 
-    if (existingVerdict) {
-      return { success: true, data: existingVerdict };
-    }
+    // NOTE: We REMOVED the early return here. We want a fresh Groq call EVERY time.
 
     // 4. Data Synthesis
     const currentScore = user.scoreHistory[0]?.newScore || 500;
@@ -69,49 +67,47 @@ export async function generateDailyVerdict() {
     // 5. SAFETY CHECK: Missing API Key Fallback
     if (!process.env.GROQ_API_KEY) {
       console.warn("⚠️ NO GROQ_API_KEY FOUND. USING FALLBACK.");
-      const mockVerdict = await db.dailyVerdict.create({
-        data: {
-          userId: user.id,
-          narrative: "SYSTEM OPERATIONAL. WAITING FOR JUDGMENT PROTOCOLS.",
-          mood: "NEUTRAL",
-        },
-      });
-      return { success: true, data: mockVerdict };
+      return { 
+        success: true, 
+        data: { narrative: "SYSTEM OPERATIONAL. AWAITING API KEY.", mood: "NEUTRAL" } 
+      };
     }
 
-    // 6. The "Giga" System Prompt
+    // 6. The "Giga" System Prompt - UPDATED FOR EXTREME VARIETY
     const systemPrompt = `
-      You are the GigaEsports AI. You represent the peak of esports discipline and excellence. 
+      You are the GigaEsports AI. You represent the absolute peak of esports discipline, brutal truth, and elite performance. 
       Your tone is stoic, powerful, and heavily influenced by "Gigachad" internet culture.
+
+      CRITICAL DIRECTIVE: NEVER REPEAT YOURSELF. Be highly creative, unpredictable, and use varied vocabulary. 
 
       Your Task: Judge the user's recent performance data.
 
-      Directives:
-      - **High Performance (Score Up/Winning):** Use terms like "King," "Mogging," "Locked in," "Pure cinema."
-      - **Low Performance (Score Down/Losing):** Be brutally honest. "Hit the aim trainer," "Fix the mental," "Stop throwing."
-      - **Inactivity:** Express disappointment. "The grind does not stop," "Beta mindset detected."
+      Guidelines:
+      - High Performance (Score Up/Winning): Praise them like a warlord. Use terms like "Absolute Cinema," "Mogging the grid," "Aura expanding," "Unstoppable force."
+      - Low Performance (Score Down/Losing): Be brutally honest but varied. "Hit the aim trainer," "Tactical disaster," "Fix your mental," "Embarrassing read."
+      - Inactivity/0 Streak: DO NOT just say "Beta mindset". Invent new insults for laziness. "Ghosting the grid? Pathetic," "Your aura is fading," "Status: AFK. Honor: Depleted," "The grind does not pause."
       
       Constraints:
-      - Keep it under 20 words. Short. Punchy.
+      - Keep it under 15 words. Short. Punchy. Devastating.
       - Output JSON only.
 
       Output format:
       {
-        "narrative": "Your short Giga text here.",
+        "narrative": "Your short, unique Giga text here.",
         "mood": "IMPRESSED" | "NEUTRAL" | "WARNING" | "CRITICAL"
       }
     `;
 
-    // 7. Call Groq (UPDATED MODEL HERE)
+    // 7. Call Groq
     try {
       const chatCompletion = await groq.chat.completions.create({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Judge this user:\n${contextSummary}` },
         ],
-        // UPDATED: Using the latest supported model
         model: "llama-3.3-70b-versatile", 
-        temperature: 0.8,
+        // Bumped temperature slightly for more creative, chaotic responses
+        temperature: 0.9,
         response_format: { type: "json_object" },
       });
 
@@ -121,17 +117,28 @@ export async function generateDailyVerdict() {
 
       const narrative =
         aiResponse.narrative ||
-        "Silence. The data is unclear. Return to the lobby.";
+        "SILENCE. THE DATA IS UNCLEAR. RETURN TO LOBBY.";
       const mood = aiResponse.mood || "NEUTRAL";
 
-      // 8. Persist to DB
-      const verdict = await db.dailyVerdict.create({
-        data: {
-          userId: user.id,
-          narrative: narrative,
-          mood: mood,
-        },
-      });
+      // 8. Persist to DB (Update today's record if it exists, otherwise create)
+      let verdict;
+      if (existingVerdict) {
+        verdict = await db.dailyVerdict.update({
+          where: { id: existingVerdict.id },
+          data: {
+            narrative: narrative,
+            mood: mood,
+          },
+        });
+      } else {
+        verdict = await db.dailyVerdict.create({
+          data: {
+            userId: user.id,
+            narrative: narrative,
+            mood: mood,
+          },
+        });
+      }
 
       return { success: true, data: verdict };
 

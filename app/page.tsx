@@ -41,7 +41,7 @@ export default function DashboardPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4 gap-4">
           <div>
             <h1 className="font-black uppercase tracking-tighter text-4xl md:text-5xl italic leading-[0.85]">
-              Command <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-500">Center</span>
+              Command <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-500">Center`</span>
             </h1>
             <p className="mt-2 font-bold uppercase text-[10px] tracking-widest text-zinc-400">
               // System_Ver_2.0 // Identity_Protocol_Active

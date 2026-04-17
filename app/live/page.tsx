@@ -23,8 +23,9 @@ async function fetchDirectLiveMatches() {
       id: String(m.id),
       game: m.videogame?.name || "ESPORTS",
       tournName: m.league?.name || "Global League",
-      teamA: m.opponents?.[0]?.opponent?.name || "TBD",
-      teamB: m.opponents?.[1]?.opponent?.name || "TBD",
+      // UPDATED: Prefer Acronym if available to prevent long strings
+      teamA: m.opponents?.[0]?.opponent?.acronym || m.opponents?.[0]?.opponent?.name || "TBD",
+      teamB: m.opponents?.[1]?.opponent?.acronym || m.opponents?.[1]?.opponent?.name || "TBD",
       scoreA: m.results?.[0]?.score || 0,
       scoreB: m.results?.[1]?.score || 0,
       streamUrl: m.official_stream_url || null,
@@ -66,7 +67,7 @@ const getDummyLiveMatches = () => {
       game: "LoL",
       tournName: "LCK Spring 2026",
       teamA: "T1",
-      teamB: "Dplus KIA",
+      teamB: "DK",
       scoreA: 2,
       scoreB: 0,
       streamUrl: "https://twitch.tv/lck",
@@ -144,18 +145,19 @@ export default async function LiveMatchesPage() {
                     {match.tournName}
                   </h4>
                   
-                  <div className="flex items-center justify-center w-full gap-6">
-                    <span className="font-black italic text-2xl md:text-3xl w-1/3 text-right truncate text-white">
+                  {/* UPDATED: Adjusted flex, gap, and text sizing */}
+                  <div className="flex items-center justify-between w-full gap-3">
+                    <span className="font-black italic text-xl md:text-2xl flex-1 min-w-0 text-right truncate text-white">
                       {match.teamA}
                     </span>
                     
-                    <div className="flex items-center justify-center gap-3 bg-black/50 border border-zinc-800 px-4 py-2 rounded-md">
+                    <div className="shrink-0 flex items-center justify-center gap-3 bg-black/50 border border-zinc-800 px-3 py-1.5 rounded-md shadow-inner">
                       <span className="font-mono text-xl font-bold text-emerald-400">{match.scoreA}</span>
                       <span className="text-zinc-600 text-sm">-</span>
                       <span className="font-mono text-xl font-bold text-emerald-400">{match.scoreB}</span>
                     </div>
 
-                    <span className="font-black italic text-2xl md:text-3xl w-1/3 text-left truncate text-white">
+                    <span className="font-black italic text-xl md:text-2xl flex-1 min-w-0 text-left truncate text-white">
                       {match.teamB}
                     </span>
                   </div>

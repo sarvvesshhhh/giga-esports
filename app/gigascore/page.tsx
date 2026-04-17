@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { Activity, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { Activity, ShieldAlert, CheckCircle2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Components
@@ -15,11 +15,11 @@ export default async function GigaScorePage() {
   const { userId: clerkId } = await auth();
   if (!clerkId) redirect("/sign-in");
 
+  // 1. QUERY: Fetches user and their newly updated Prediction records
   const user = await db.user.findUnique({
     where: { clerkId },
     include: {
       predictions: {
-        include: { match: true },
         orderBy: { createdAt: "desc" },
         take: 10,
       },
@@ -66,7 +66,7 @@ export default async function GigaScorePage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4 gap-4">
           <div>
             <h1 className="flex items-center gap-3 font-black uppercase tracking-tighter text-4xl md:text-5xl italic leading-[0.85]">
-              <Activity className="w-10 h-10 text-red-600" />
+              <Activity className="w-10 h-10 text-red-600 drop-shadow-[0_0_10px_rgba(220,38,38,0.5)]" />
               Giga<span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-500 pr-2">Score</span>
             </h1>
             <p className="mt-2 font-bold uppercase text-[10px] tracking-widest text-zinc-400">
@@ -90,15 +90,15 @@ export default async function GigaScorePage() {
           
           <aside className="lg:col-span-4 space-y-8 h-full flex flex-col">
             {/* Daily Ritual Status */}
-            <div className="p-5 bg-zinc-900/40 border border-zinc-800 rounded-sm">
+            <div className="p-5 bg-zinc-900/40 backdrop-blur-sm border border-zinc-800 rounded-sm">
               <h4 className="text-[10px] font-bold text-zinc-500 mb-3 uppercase tracking-widest">
                 // Daily_Ritual_Status
               </h4>
               <div className={cn(
-                "flex items-center gap-3 p-4 rounded-sm border font-bold uppercase text-xs tracking-widest",
+                "flex items-center gap-3 p-4 rounded-sm border font-bold uppercase text-xs tracking-widest transition-colors",
                 isRitualComplete 
-                  ? "bg-emerald-900/10 border-emerald-500/30 text-emerald-500" 
-                  : "bg-red-900/10 border-red-500/30 text-red-500"
+                  ? "bg-emerald-900/10 border-emerald-500/30 text-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.1)]" 
+                  : "bg-red-900/10 border-red-500/30 text-red-500 shadow-[0_0_10px_rgba(239,68,68,0.1)]"
               )}>
                 {isRitualComplete ? (
                   <>
@@ -116,19 +116,15 @@ export default async function GigaScorePage() {
             
             {/* The Verdict Card */}
             <div className="flex-grow">
-              <VerdictCard 
-                verdict={latestVerdict?.narrative || "SYSTEM AWAITING USER INTERACTION DATA."} 
-                mood={latestVerdict?.mood || "NEUTRAL"}
-                date={latestVerdict?.date || new Date()}
-              />
+              <VerdictCard />
             </div>
           </aside>
 
           {/* Identity Graph Area */}
-          <div className="lg:col-span-8 bg-zinc-900/40 border border-zinc-800 rounded-sm p-6 min-h-[300px] flex flex-col">
+          <div className="lg:col-span-8 bg-zinc-900/40 backdrop-blur-sm border border-zinc-800 rounded-sm p-6 min-h-[300px] flex flex-col">
             <h4 className="text-[10px] font-bold text-zinc-500 mb-6 uppercase tracking-widest flex items-center justify-between">
               <span>// Behavioral_Trajectory</span>
-              <span className="text-zinc-700">LIFETIME</span>
+              <span className="text-zinc-600 flex items-center gap-2"><Activity className="w-3 h-3"/> LIFETIME</span>
             </h4>
             <div className="flex-grow w-full">
                <IdentityGraph data={graphData} />
@@ -152,13 +148,22 @@ export default async function GigaScorePage() {
               user.predictions.map((prediction) => (
                 <PredictionCard 
                   key={prediction.id} 
-                  prediction={prediction} 
-                  match={prediction.match} 
+                  prediction={{
+                    pick: prediction.pick,
+                    outcome: prediction.outcome as any
+                  }} 
+                  // UPDATED: Now pulling actual team and tournament data directly from your DB!
+                  match={{
+                    teamA: prediction.teamA || prediction.pick, // Fallback to pick if old data
+                    teamB: prediction.teamB || "TBD",
+                    tournName: prediction.tournName || "PRO EVENT",
+                    game: prediction.game || "ESPORTS"
+                  }} 
                 />
               ))
             ) : (
-              <div className="col-span-full py-16 text-center border border-dashed border-zinc-300 dark:border-zinc-800 rounded-sm text-zinc-500 font-mono text-[10px] uppercase tracking-widest">
-                <ShieldAlert className="w-8 h-8 mx-auto mb-3 opacity-50 text-red-500" />
+              <div className="col-span-full py-16 text-center border border-dashed border-zinc-300 dark:border-zinc-800 rounded-sm text-zinc-500 font-mono text-[10px] uppercase tracking-widest bg-zinc-950/20">
+                <ShieldCheck className="w-8 h-8 mx-auto mb-3 opacity-50" />
                 // NO PREDICTIVE DATA FOUND IN MEMORY. INITIATE PROTOCOLS.
               </div>
             )}
