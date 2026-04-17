@@ -75,7 +75,7 @@ export function IdentityGraph({ data }: IdentityGraphProps) {
               borderRadius: '0.125rem'
             }}
             itemStyle={{ color: '#ef4444', fontWeight: 'bold' }} // Red text for the score
-            formatter={(value: number) => [Math.round(value), 'GigaScore']}
+            formatter={(value: any) => [Math.round(value as number), 'GigaScore']}
             labelStyle={{ color: '#a1a1aa', marginBottom: '4px' }}
           />
           
