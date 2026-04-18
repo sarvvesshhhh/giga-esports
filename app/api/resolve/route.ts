@@ -3,6 +3,11 @@ import { db } from "@/lib/db";
 
 export async function GET(req: Request) {
   try {
+    const apiKey = process.env.PANDASCORE_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "Missing PANDASCORE_API_KEY" }, { status: 500 });
+    }
+
     const pendingPredictions = await db.prediction.findMany({
       where: { outcome: "PENDING" },
       include: { user: true },
@@ -12,65 +17,102 @@ export async function GET(req: Request) {
       return NextResponse.json({ message: "No pending predictions to resolve." });
     }
 
+    // 1. Group predictions by Match ID to avoid hammering the PandaScore API
+    const predictionsByMatch: Record<string, typeof pendingPredictions> = {};
+    for (const p of pendingPredictions) {
+      if (!predictionsByMatch[p.matchId]) {
+        predictionsByMatch[p.matchId] = [];
+      }
+      predictionsByMatch[p.matchId].push(p);
+    }
+
     let processedCount = 0;
 
-    for (const prediction of pendingPredictions) {
-      const user = prediction.user;
+    // 2. Process each unique match
+    for (const matchId of Object.keys(predictionsByMatch)) {
       
-      // Simulated winner for testing (50/50 coin flip)
-      const simulatedWinner = Math.random() > 0.5 ? prediction.pick : "OTHER_TEAM";
+      // Fetch actual live match data from PandaScore
+      const res = await fetch(`https://api.pandascore.co/matches/${matchId}?token=${apiKey}`);
       
-      const isCorrect = prediction.pick === simulatedWinner;
-      let scoreDelta = 0;
-      let newStreak = user.currentStreak;
-
-      // THE GIGASCORE MATH
-      if (isCorrect) {
-        scoreDelta = Math.round(15 * (1 + (user.currentStreak * 0.05)));
-        newStreak += 1;
-        await db.prediction.update({ where: { id: prediction.id }, data: { outcome: "CORRECT" } });
-      } else {
-        scoreDelta = -10;
-        newStreak = 0;
-        await db.prediction.update({ where: { id: prediction.id }, data: { outcome: "INCORRECT" } });
+      if (!res.ok) {
+        console.warn(`Failed to fetch match ${matchId}. Status: ${res.status}`);
+        continue; // Skip this match, try again next time
       }
 
-      // Calculate new total using the CORRECT model: gigaScoreLog
-      const latestScoreRecord = await db.gigaScoreLog.findFirst({
-        where: { userId: user.id },
-        orderBy: { timestamp: "desc" }
-      });
-      
-      const currentTotal = latestScoreRecord ? latestScoreRecord.newScore : user.gigaScore;
-      const finalScore = Math.max(0, currentTotal + scoreDelta);
+      const matchData = await res.json();
 
-      // Save Identity Data (Also updating the gigaScore on the User table!)
-      await db.user.update({ 
-        where: { id: user.id }, 
-        data: { 
-          currentStreak: newStreak,
-          gigaScore: finalScore 
-        } 
-      });
+      // Only resolve if the match is officially finished
+      if (matchData.status !== "finished") {
+        continue;
+      }
 
-      // Log the history using the CORRECT model and CORRECT field names
-      await db.gigaScoreLog.create({
-        data: {
-          userId: user.id,
-          changeAmount: scoreDelta, // Changed from delta to changeAmount
-          newScore: finalScore,
-          reason: isCorrect ? "PREDICTION_HIT" : "PREDICTION_MISS"
+      // Extract the real winner (PandaScore usually provides both an acronym and full name)
+      const winnerName = matchData.winner?.name || "";
+      const winnerAcronym = matchData.winner?.acronym || "";
+
+      if (!winnerName && !winnerAcronym) {
+        // E.g., match was canceled or a draw
+        console.warn(`Match ${matchId} finished but has no clear winner.`);
+        continue; 
+      }
+
+      // 3. Resolve all predictions for this specific match
+      for (const prediction of predictionsByMatch[matchId]) {
+        const user = prediction.user;
+        
+        // User pick could have been stored as the acronym or the full name depending on UI
+        const isCorrect = prediction.pick === winnerAcronym || prediction.pick === winnerName;
+        
+        let scoreDelta = 0;
+        let newStreak = user.currentStreak;
+
+        // THE GIGASCORE MATH
+        if (isCorrect) {
+          scoreDelta = Math.round(15 * (1 + (user.currentStreak * 0.05)));
+          newStreak += 1;
+          await db.prediction.update({ where: { id: prediction.id }, data: { outcome: "CORRECT" } });
+        } else {
+          scoreDelta = -10;
+          newStreak = 0;
+          await db.prediction.update({ where: { id: prediction.id }, data: { outcome: "INCORRECT" } });
         }
-      });
 
-      processedCount++;
+        // Calculate new total using the GigaScoreLog history
+        const latestScoreRecord = await db.gigaScoreLog.findFirst({
+          where: { userId: user.id },
+          orderBy: { timestamp: "desc" }
+        });
+        
+        const currentTotal = latestScoreRecord ? latestScoreRecord.newScore : user.gigaScore;
+        const finalScore = Math.max(0, currentTotal + scoreDelta);
+
+        // Save Identity Data
+        await db.user.update({ 
+          where: { id: user.id }, 
+          data: { 
+            currentStreak: newStreak,
+            gigaScore: finalScore 
+          } 
+        });
+
+        // Log the history using the CORRECT model and CORRECT field names
+        await db.gigaScoreLog.create({
+          data: {
+            userId: user.id,
+            changeAmount: scoreDelta, 
+            newScore: finalScore,
+            reason: isCorrect ? "PREDICTION_HIT" : "PREDICTION_MISS"
+          }
+        });
+
+        processedCount++;
+      }
     }
 
     return NextResponse.json({ message: "Identity Protocol Evaluated.", processed: processedCount });
 
   } catch (error) {
     console.error("Resolution Engine Error:", error);
-    // Now it will print the EXACT error to your browser if it fails!
     return NextResponse.json({ error: "System failure.", details: String(error) }, { status: 500 });
   }
 }
