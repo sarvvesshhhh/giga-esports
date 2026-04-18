@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { PredictionButtons } from "@/components/ui/prediction-buttons"; 
 import { db } from "@/lib/db"; // <--- ADDED DB
 import { auth } from "@clerk/nextjs/server"; // <--- ADDED AUTH
+import { LocalTime } from "@/components/ui/local-time";
 
 // --- DIRECT API FETCHER ---
 async function fetchDirectSchedule() {
@@ -13,16 +14,20 @@ async function fetchDirectSchedule() {
   try {
     // Fetch upcoming matches directly from PandaScore (across all games)
     const res = await fetch(
-      `https://api.pandascore.co/matches/upcoming?sort=begin_at&page[size]=8&token=${apiKey}`,
-      { next: { revalidate: 3600 } } // Cache for 1 hour
+      `https://api.pandascore.co/matches/upcoming?sort=begin_at&page[size]=15&token=${apiKey}`,
+      { next: { revalidate: 60 } } // Cache for 1 minute instead of 1 hour to prevent stale live data
     );
 
     if (!res.ok) return null;
 
     const data = await res.json();
+    const now = new Date();
     
     // Normalize the PandaScore data to fit our UI
-    return data.map((m: any) => ({
+    return data
+      .filter((m: any) => new Date(m.begin_at) > now) // Filter out matches that have already started
+      .slice(0, 8) // Ensure we only take 8 after filtering
+      .map((m: any) => ({
       id: String(m.id),
       game: m.videogame?.name || "ESPORTS",
       tournName: m.league?.name || "Pro Event",
@@ -152,10 +157,6 @@ export default async function SchedulePage() {
         {/* The Schedule List */}
         <div className="space-y-4">
           {matches.map((match: any) => {
-            const matchDate = new Date(match.startTime);
-            const dateString = matchDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-            const timeString = matchDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-
             return (
               <div 
                 key={match.id} 
@@ -205,20 +206,9 @@ export default async function SchedulePage() {
 
                 {/* Right: Time & Status & Prediction Buttons */}
                 <div className="flex flex-col items-end justify-between w-full md:w-1/4 mt-6 md:mt-0 bg-black/40 p-3 rounded border border-zinc-800/50 group-hover:border-zinc-700 transition-colors">
-                  <div className="w-full flex flex-col items-end">
-                      <div className="flex items-center gap-2 text-zinc-300">
-                        <Calendar className="w-3.5 h-3.5 text-red-500" />
-                        <span className="font-mono text-xs uppercase font-bold tracking-wider">
-                          {dateString}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-zinc-500 mt-1">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span className="font-mono text-[10px] uppercase tracking-wider">
-                          {timeString}
-                        </span>
-                      </div>
-                  </div>
+                    <div className="w-full flex flex-col items-end">
+                      <LocalTime isoString={match.startTime} />
+                    </div>
                   
                   {/* INJECTED BUTTONS HERE */}
                   <div className="w-full mt-3 pt-3 border-t border-zinc-800/80">
