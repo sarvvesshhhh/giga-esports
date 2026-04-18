@@ -8,6 +8,7 @@ import { Bell, Sun, Moon, MessageSquareWarning } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { UserButton, useUser } from "@clerk/nextjs"; 
+import { NotificationsDropdown } from "./ui/notifications-dropdown";
 
 // Synced perfectly with the Footer directory
 const navItems = [
@@ -106,9 +107,7 @@ export function Navbar() {
           )}
 
           {/* Notifications */}
-          <button className="p-2 text-zinc-400 hover:text-red-600 transition-colors rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900">
-            <Bell className="w-4 h-4 md:w-5 md:h-5" />
-          </button>
+          <NotificationsDropdown />
           
           {/* Clerk User Profile */}
           <div className="flex items-center justify-center pl-2">
